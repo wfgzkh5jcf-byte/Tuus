@@ -68,7 +68,7 @@ class TuusDemo:
         self.draw_clock(rx1,ty1,rx2,ty2)
         self.draw_tasks(lx1,by1,lx2,by2)
         self.draw_weather(rx1,by1,rx2,by2)
-        self.canvas.create_text(w/2, h-footer/2, text='TUUS v0.3.1', fill=GREEN,
+        self.canvas.create_text(w/2, h-footer/2, text='TUUS v0.3.2', fill=GREEN,
                                 font=('DejaVu Sans', int(h*0.018)))
 
     def title_block(self, x1, y1, symbol, title):
@@ -111,10 +111,22 @@ class TuusDemo:
         radius=min((x2-split)*0.40,(y2-y1)*0.40)
         self.analog_cx=right_cx
         self.analog_cy=cy
+        self.analog_radius=radius
         self.analog_size=max(240, int(radius*2.08))
-        self.analog_image_id=self.canvas.create_image(
-            right_cx, cy, anchor='center'
-        )
+        self.draw_analog_face()
+
+        self.hour_hand=self.canvas.create_line(
+            right_cx,cy,right_cx,cy-radius*0.48,
+            fill=CREAM,width=7,capstyle=tk.ROUND)
+        self.minute_hand=self.canvas.create_line(
+            right_cx,cy,right_cx,cy-radius*0.68,
+            fill=GREEN,width=5,capstyle=tk.ROUND)
+        self.second_hand=self.canvas.create_line(
+            right_cx,cy,right_cx,cy-radius*0.78,
+            fill=ORANGE,width=2,capstyle=tk.ROUND)
+        self.center_dot=self.canvas.create_oval(
+            right_cx-6,cy-6,right_cx+6,cy+6,
+            fill=ORANGE,outline=CREAM,width=1)
 
     def _clock_font(self, size):
         for path in (
@@ -127,7 +139,7 @@ class TuusDemo:
                 pass
         return ImageFont.load_default()
 
-    def render_analog_clock(self, now):
+    def draw_analog_face(self):
         size=self.analog_size
         scale=4
         hi=size*scale
@@ -138,8 +150,6 @@ class TuusDemo:
         draw=ImageDraw.Draw(img)
 
         cream=(243,235,221,255)
-        green=(145,169,97,255)
-        orange=(243,154,24,255)
         muted=(174,184,179,255)
         edge=(55,66,71,255)
 
@@ -173,29 +183,12 @@ class TuusDemo:
             tw=box[2]-box[0]; th=box[3]-box[1]
             draw.text((x-tw/2,y-th/2-2*scale),label,font=font,fill=cream)
 
-        sec=now.second+now.microsecond/1_000_000
-        minute=now.minute+sec/60
-        hour=(now.hour%12)+minute/60
-
-        def point(angle_deg,length):
-            a=math.radians(angle_deg-90)
-            return (cx+math.cos(a)*length,cy+math.sin(a)*length)
-
-        hx,hy=point(hour*30,radius*0.48)
-        mx,my=point(minute*6,radius*0.68)
-        sx,sy=point(sec*6,radius*0.78)
-        bx,by=point(sec*6+180,radius*0.16)
-
-        draw.line((cx,cy,hx,hy),fill=cream,width=7*scale)
-        draw.line((cx,cy,mx,my),fill=green,width=5*scale)
-        draw.line((bx,by,sx,sy),fill=orange,width=2*scale)
-
-        r=6*scale
-        draw.ellipse((cx-r,cy-r,cx+r,cy+r),fill=orange,outline=cream,width=1*scale)
-
         img=img.resize((size,size),Image.Resampling.LANCZOS)
         self.analog_photo=ImageTk.PhotoImage(img)
-        self.canvas.itemconfigure(self.analog_image_id,image=self.analog_photo)
+        self.canvas.create_image(
+            self.analog_cx,self.analog_cy,
+            anchor='center',image=self.analog_photo
+        )
 
     def draw_tasks(self,x1,y1,x2,y2):
         self.title_block(x1,y1,'✓','TO DO')
@@ -232,8 +225,39 @@ class TuusDemo:
         self.canvas.itemconfigure(self.clock_text,text=now.strftime('%H:%M'))
         dt=f"{DAYS[now.weekday()].capitalize()} {now.day} {MONTHS[now.month-1]} {now.year}"
         self.canvas.itemconfigure(self.date_text,text=dt)
-        self.render_analog_clock(now)
-        self.root.after(50,self.update_clock)
+
+        sec=now.second+now.microsecond/1_000_000
+        minute=now.minute+sec/60
+        hour=(now.hour%12)+minute/60
+
+        def endpoint(angle_deg,length):
+            a=math.radians(angle_deg-90)
+            return (
+                self.analog_cx+math.cos(a)*length,
+                self.analog_cy+math.sin(a)*length,
+            )
+
+        hx,hy=endpoint(hour*30,self.analog_radius*0.48)
+        mx,my=endpoint(minute*6,self.analog_radius*0.68)
+        sx,sy=endpoint(sec*6,self.analog_radius*0.78)
+        bx,by=endpoint(sec*6+180,self.analog_radius*0.16)
+
+        self.canvas.coords(
+            self.hour_hand,
+            self.analog_cx,self.analog_cy,hx,hy)
+        self.canvas.coords(
+            self.minute_hand,
+            self.analog_cx,self.analog_cy,mx,my)
+        self.canvas.coords(
+            self.second_hand,
+            bx,by,sx,sy)
+
+        self.canvas.tag_raise(self.hour_hand)
+        self.canvas.tag_raise(self.minute_hand)
+        self.canvas.tag_raise(self.second_hand)
+        self.canvas.tag_raise(self.center_dot)
+
+        self.root.after(20,self.update_clock)
 
     def update_task_count(self):
         n=sum(v.get() for v in self.task_vars)
