@@ -2,6 +2,9 @@ const canvas = document.getElementById('clock');
 const ctx = canvas.getContext('2d');
 const timeEl = document.getElementById('digitalTime');
 const dateEl = document.getElementById('digitalDate');
+const agendaDateEl = document.getElementById('agendaDate');
+const todoList = document.getElementById('todoList');
+const todoCount = document.getElementById('todoCount');
 
 const colors = {
   cream: '#f3ebdd',
@@ -17,8 +20,8 @@ const months = ['januari','februari','maart','april','mei','juni','juli','august
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  const width = Math.round(rect.width * dpr);
-  const height = Math.round(rect.height * dpr);
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
@@ -53,7 +56,7 @@ function drawClock(now) {
   for (let i = 0; i < 60; i++) {
     const major = i % 5 === 0;
     const angle = i * Math.PI / 30;
-    const [x1, y1] = polar(cx, cy, angle, r - (major ? 20 : 10) * dpr);
+    const [x1, y1] = polar(cx, cy, angle, r - (major ? 18 : 9) * dpr);
     const [x2, y2] = polar(cx, cy, angle, r - 3 * dpr);
     ctx.strokeStyle = major ? colors.cream : colors.muted;
     ctx.lineWidth = (major ? 3 : 1) * dpr;
@@ -64,7 +67,7 @@ function drawClock(now) {
   }
 
   ctx.fillStyle = colors.cream;
-  ctx.font = `700 ${Math.round(18 * dpr)}px system-ui, sans-serif`;
+  ctx.font = `700 ${Math.round(17 * dpr)}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (let hour = 1; hour <= 12; hour++) {
@@ -88,7 +91,7 @@ function drawClock(now) {
     ctx.stroke();
   }
 
-  hand(hour * Math.PI / 6, 0.48, 8, colors.cream);
+  hand(hour * Math.PI / 6, 0.48, 7, colors.cream);
   hand(min * Math.PI / 30, 0.69, 5, colors.green);
   hand(sec * Math.PI / 30, 0.80, 2, colors.orange, 0.15);
 
@@ -98,12 +101,27 @@ function drawClock(now) {
   ctx.fill();
 }
 
+function nlDate(now, capitalize = false) {
+  const text = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  return capitalize ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
 function updateDigital(now) {
   const hh = String(now.getHours()).padStart(2, '0');
   const mm = String(now.getMinutes()).padStart(2, '0');
   timeEl.textContent = `${hh}:${mm}`;
-  dateEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  dateEl.textContent = nlDate(now, true);
+  agendaDateEl.textContent = nlDate(now, true);
 }
+
+function updateTodoCount() {
+  const checks = [...todoList.querySelectorAll('input[type="checkbox"]')];
+  const done = checks.filter((box) => box.checked).length;
+  todoCount.textContent = `✓ ${done} van ${checks.length} taken voltooid`;
+}
+
+todoList.addEventListener('change', updateTodoCount);
+updateTodoCount();
 
 let lastMinute = -1;
 function frame() {
