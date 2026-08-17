@@ -3,19 +3,82 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Tuus Web UI</title>
+  <title>Tuus 1.0</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="stage">
-    <section class="clock-test">
-      <div class="digital">
-        <div id="digitalTime">--:--</div>
-        <div id="digitalDate">--</div>
-      </div>
-      <canvas id="clock" aria-label="Analoge klok"></canvas>
+    <header class="hero">
+      <div class="brand">TUUS</div>
+      <div class="welcome">Welkom thuis</div>
+    </header>
+
+    <section class="dashboard">
+      <article class="panel agenda-panel">
+        <div class="panel-title-row">
+          <div class="icon-bubble">▣</div>
+          <div>
+            <h2>AGENDA</h2>
+            <div id="agendaDate" class="panel-subtitle">--</div>
+          </div>
+        </div>
+
+        <div class="agenda-list">
+          <div class="agenda-item"><div class="agenda-time">10:00</div><div><div class="agenda-title">Tandartscontrole</div><div class="agenda-owner">Johan</div></div></div>
+          <div class="agenda-item"><div class="agenda-time">14:30</div><div><div class="agenda-title">Boodschappen doen</div></div></div>
+          <div class="agenda-item"><div class="agenda-time">16:00</div><div><div class="agenda-title">Sporten</div><div class="agenda-owner">Emma</div></div></div>
+          <div class="agenda-item"><div class="agenda-time">19:30</div><div><div class="agenda-title">Avondeten met familie</div></div></div>
+        </div>
+        <div class="agenda-tomorrow">Morgen: &nbsp; <strong>09:00</strong> &nbsp; Werkoverleg</div>
+      </article>
+
+      <article class="panel clock-panel">
+        <div class="digital-block">
+          <div id="digitalTime">--:--</div>
+          <div id="digitalDate">--</div>
+          <div class="home-message">⌂ &nbsp; Fijn dat je er bent!</div>
+        </div>
+        <canvas id="clock" aria-label="Analoge klok"></canvas>
+      </article>
+
+      <article class="panel todo-panel">
+        <div class="panel-title-row">
+          <div class="icon-bubble">✓</div>
+          <h2>TO DO</h2>
+        </div>
+        <div class="todo-list" id="todoList">
+          <label><input type="checkbox" checked><span>Vuilnis buitenzetten</span></label>
+          <label><input type="checkbox"><span>Boodschappen halen</span></label>
+          <label><input type="checkbox"><span>Was opvouwen</span></label>
+          <label><input type="checkbox"><span>Auto tanken</span></label>
+          <label><input type="checkbox"><span>Bloemen water geven</span></label>
+        </div>
+        <div class="todo-footer" id="todoCount">✓ 1 van 5 taken voltooid</div>
+      </article>
+
+      <article class="panel weather-panel">
+        <div class="weather-left">
+          <div class="panel-title-row">
+            <div class="icon-bubble">☀</div>
+            <h2>WEER</h2>
+          </div>
+          <div class="weather-temp">21°C</div>
+          <div class="weather-state">Zonnig</div>
+          <div class="weather-detail">• &nbsp; Voelt als 21°C</div>
+          <div class="weather-detail">• &nbsp; ZW 13 km/u</div>
+          <div class="weather-detail">• &nbsp; Vochtigheid 59%</div>
+        </div>
+        <div class="radar-card">
+          <div class="radar-dots" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <div class="radar-title">BUIENRADAR</div>
+          <div class="radar-subtitle">live kaart volgt</div>
+        </div>
+      </article>
     </section>
-    <div class="badge">TUUS web-render test</div>
+
+    <footer>TUUS 1.0 · webui prototype</footer>
   </main>
   <script src="app.js"></script>
 </body>
