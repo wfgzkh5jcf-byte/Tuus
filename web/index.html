@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tuus 1.0</title>
-  <link rel="stylesheet" href="style.css?v=20260818-1438">
+  <link rel="stylesheet" href="style.css?v=20260818-1855">
 </head>
 <body>
   <main class="stage">
@@ -16,7 +16,11 @@
         <div class="agenda-tomorrow" id="agendaTomorrow">Morgen: laden…</div>
       </article>
       <article class="panel clock-panel"><div class="digital-block"><div id="digitalTime">--:--</div><div class="home-message" id="dailyQuote">Geniet van de kleine dingen.</div></div><canvas id="clock" aria-label="Analoge klok"></canvas></article>
-      <article class="panel todo-panel"><div class="panel-title-row"><div class="icon-bubble">✓</div><h2>TO DO</h2></div><div class="todo-list" id="todoList"><label><input type="checkbox" checked><span>Vuilnis buitenzetten</span></label><label><input type="checkbox"><span>Boodschappen halen</span></label><label><input type="checkbox"><span>Was opvouwen</span></label><label><input type="checkbox"><span>Auto tanken</span></label><label><input type="checkbox"><span>Bloemen water geven</span></label></div><div class="todo-footer" id="todoCount">✓ 1 van 5 taken voltooid</div></article>
+      <article class="panel todo-panel">
+        <div class="panel-title-row"><div class="icon-bubble">✓</div><h2>TO DO</h2></div>
+        <div class="todo-list" id="todoList"><div class="todo-loading">Taken laden…</div></div>
+        <div class="todo-footer"><span id="todoCount">✓ 0 van 0 taken voltooid</span><button class="add-task-button" id="addTaskButton" type="button">+ taak</button></div>
+      </article>
       <article class="panel weather-panel">
         <div class="weather-left"><div class="panel-title-row"><div class="icon-bubble weather-icon" id="weatherIcon">*</div><h2>WEER</h2></div><div class="weather-temp" id="weatherTemp">--°C</div><div class="weather-state" id="weatherState">Weer laden…</div><div class="weather-detail" id="weatherFeels">• &nbsp; Voelt als --°C</div><div class="weather-detail" id="weatherWind">• &nbsp; Wind -- km/u</div><div class="weather-detail" id="weatherHumidity">• &nbsp; Vochtigheid --%</div></div>
         <div class="radar-card"><iframe id="radarFrame" class="radar-frame" title="Lokale Buienradar Ruinerwold" src="https://gadgets.buienradar.nl/gadget/zoommap/?lat=52.72&lng=6.25&overname=2&zoom=9&naam=Ruinerwold&size=2b&voor=1" scrolling="no" frameborder="0"></iframe><div class="radar-credit">BUIENRADAR.NL · 5 MIN</div></div>
@@ -24,6 +28,21 @@
     </section>
     <footer>TUUS 1.0 · webui prototype</footer>
   </main>
-  <script src="app.js?v=20260818-1438"></script>
+
+  <div class="task-modal" id="taskModal" hidden>
+    <div class="task-dialog" role="dialog" aria-modal="true" aria-labelledby="taskDialogTitle">
+      <div class="task-dialog-title" id="taskDialogTitle">Nieuwe taak</div>
+      <div class="task-input" id="taskInput" aria-label="Nieuwe taak"></div>
+      <div class="screen-keyboard" id="screenKeyboard">
+        <div class="keyboard-row"><button>q</button><button>w</button><button>e</button><button>r</button><button>t</button><button>y</button><button>u</button><button>i</button><button>o</button><button>p</button></div>
+        <div class="keyboard-row"><button>a</button><button>s</button><button>d</button><button>f</button><button>g</button><button>h</button><button>j</button><button>k</button><button>l</button></div>
+        <div class="keyboard-row"><button>z</button><button>x</button><button>c</button><button>v</button><button>b</button><button>n</button><button>m</button><button data-key="backspace" class="key-wide">⌫</button></div>
+        <div class="keyboard-row"><button data-key="space" class="key-space">spatie</button></div>
+      </div>
+      <div class="task-dialog-actions"><button type="button" class="task-cancel" id="cancelTaskButton">Annuleren</button><button type="button" class="task-submit" id="submitTaskButton">Toevoegen</button></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20260818-1855"></script>
 </body>
 </html>
