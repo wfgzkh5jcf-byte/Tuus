@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+import json
+import os
+from datetime import date, datetime, timedelta
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlparse
+from zoneinfo import ZoneInfo
+
+from caldav import DAVClient
+
+ROOT = Path(__file__).resolve().parents[1]
+WEB_DIR = ROOT / "web"
+CONFIG = Path.home() / ".tuus_icloud"
+TZ = ZoneInfo("Europe/Amsterdam")
+CALENDAR_NAME = "Thuis/werk"
+
+
+def load_config():
+    cfg = {}
+    with CONFIG.open(encoding="utf-8") as f:
+        for raw in f:
+            line = raw.strip()
+            if line and "=" in line:
+                key, value = line.split("=", 1)
+                cfg[key] = value
+    return cfg
+
+
+def as_local_datetime(value):
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=TZ)
+        return value.astimezone(TZ)
+    return None
+
+
+def get_agenda():
+    cfg = load_config()
+    client = DAVClient(
+        url="https://caldav.icloud.com/",
+        username=cfg["APPLE_ID"],
+        password=cfg["APPLE_APP_PASSWORD"],
+    )
+    calendars = client.principal().calendars()
+    calendar = next((cal for cal in calendars if cal.name == CALENDAR_NAME), None)
+    if calendar is None:
+        raise RuntimeError(f"Agenda '{CALENDAR_NAME}' niet gevonden")
+
+    now = datetime.now(TZ)
+    today = now.date()
+    last_day = today + timedelta(days=1)
+    query_start = datetime.combine(today, datetime.min.time(), TZ)
+    query_end = datetime.combine(last_day + timedelta(days=1), datetime.min.time(), TZ)
+
+    found = calendar.search(start=query_start, end=query_end, event=True, expand=True)
+    items = []
+    seen = set()
+
+    for event in found:
+        try:
+            vevent = event.vobject_instance.vevent
+            summary = str(getattr(vevent, "summary", "Zonder titel").value)
+            start_value = vevent.dtstart.value
+            uid = str(getattr(vevent, "uid", "").value) if hasattr(vevent, "uid") else ""
+
+            if isinstance(start_value, datetime):
+                local = as_local_datetime(start_value)
+                event_day = local.date()
+                if event_day < today or event_day > last_day:
+                    continue
+                item = {
+                    "title": summary,
+                    "date": event_day.isoformat(),
+                    "all_day": False,
+                    "time": local.strftime("%H:%M"),
+                }
+                identity = (uid, item["date"], item["time"], summary)
+            elif isinstance(start_value, date):
+                event_day = start_value
+                if event_day < today or event_day > last_day:
+                    continue
+                item = {
+                    "title": summary,
+                    "date": event_day.isoformat(),
+                    "all_day": True,
+                    "time": None,
+                }
+                identity = (uid, item["date"], "all-day", summary)
+            else:
+                continue
+
+            if identity not in seen:
+                seen.add(identity)
+                items.append(item)
+        except Exception as exc:
+            print(f"Agenda-item overgeslagen: {exc}")
+
+    items.sort(key=lambda x: (x["date"], x["all_day"] is False, x["time"] or "00:00", x["title"].lower()))
+    return {
+        "calendar": CALENDAR_NAME,
+        "today": today.isoformat(),
+        "tomorrow": last_day.isoformat(),
+        "events": items,
+    }
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(WEB_DIR), **kwargs)
+
+    def do_GET(self):
+        if urlparse(self.path).path == "/api/agenda":
+            try:
+                payload = get_agenda()
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                self.send_response(200)
+            except Exception as exc:
+                body = json.dumps({"error": str(exc)}, ensure_ascii=False).encode("utf-8")
+                self.send_response(500)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().do_GET()
+
+
+if __name__ == "__main__":
+    os.chdir(WEB_DIR)
+    server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
+    print("Tuus server: http://127.0.0.1:8765")
+    print(f"Agenda: {CALENDAR_NAME} (alleen lezen)")
+    server.serve_forever()
