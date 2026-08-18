@@ -5,7 +5,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB_DIR = ROOT / "web"
 CONFIG = Path.home() / ".tuus_icloud"
 TODO_STORE = Path.home() / ".tuus_todos.json"
+AREA_CACHE = Path.home() / ".tuus_area_cache.json"
 TZ = ZoneInfo("Europe/Amsterdam")
 CALENDAR_NAME = "Thuis/werk"
 WEATHER_LAT = 52.72
@@ -25,11 +26,12 @@ WEATHER_LON = 6.25
 MAINTENANCE_ANCHOR = date(2026, 8, 18)  # aquarium
 MAINTENANCE_INTERVAL_DAYS = 14
 
-# AREA-adres staat klaar voor koppeling. De publieke site/app gebruikt Ximmio,
-# maar de provider-identificatie is nog niet betrouwbaar genoeg vastgesteld om
-# automatisch afvaldata op te halen zonder risico op verkeerde ophaaldagen.
+# AREA gebruikt de Ximmio-afvalkalender.
 AREA_POSTCODE = "7961LX"
 AREA_HOUSE_NUMBER = "11"
+AREA_COMPANY_CODE = "adc418da-d19b-11e5-ab30-625662870761"
+AREA_API = "https://wasteapi.ximmio.com/api"
+AREA_CACHE_HOURS = 6
 
 
 def load_config():
@@ -118,6 +120,90 @@ def get_weather():
     }
 
 
+def ximmio_post(endpoint, fields):
+    body = urlencode(fields).encode("utf-8")
+    req = Request(
+        f"{AREA_API}/{endpoint}",
+        data=body,
+        headers={
+            "User-Agent": "Tuus-home-dashboard/1.0",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        },
+        method="POST",
+    )
+    with urlopen(req, timeout=12) as response:
+        return json.load(response)
+
+
+def fetch_area_calendar():
+    address_data = ximmio_post("FetchAdress", {
+        "postCode": AREA_POSTCODE,
+        "houseNumber": AREA_HOUSE_NUMBER,
+        "companyCode": AREA_COMPANY_CODE,
+    })
+    addresses = address_data.get("dataList") or []
+    if not addresses:
+        raise RuntimeError("AREA-adres niet gevonden")
+    address = addresses[0]
+    start = datetime.now(TZ).date()
+    end = start + timedelta(days=70)
+    cal_data = ximmio_post("GetCalendar", {
+        "uniqueAddressID": address["UniqueId"],
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat(),
+        "companyCode": AREA_COMPANY_CODE,
+        "community": address.get("Community", ""),
+    })
+    collections = []
+    for waste_type in cal_data.get("dataList") or []:
+        label = str(waste_type.get("_pickupTypeText") or waste_type.get("pickupTypeText") or "Afval").strip()
+        for raw_date in waste_type.get("pickupDates") or []:
+            try:
+                pickup = datetime.fromisoformat(str(raw_date).replace("Z", "+00:00")).date()
+            except Exception:
+                pickup = datetime.strptime(str(raw_date)[:10], "%Y-%m-%d").date()
+            collections.append({"date": pickup.isoformat(), "label": label})
+    result = {
+        "fetched_at": datetime.now(TZ).isoformat(),
+        "address": {"postcode": AREA_POSTCODE, "house_number": AREA_HOUSE_NUMBER},
+        "collections": collections,
+    }
+    try:
+        with AREA_CACHE.open("w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        print(f"AREA-cache kon niet worden opgeslagen: {exc}")
+    return result
+
+
+def get_area_calendar():
+    if AREA_CACHE.exists():
+        try:
+            with AREA_CACHE.open(encoding="utf-8") as f:
+                cached = json.load(f)
+            fetched = datetime.fromisoformat(cached["fetched_at"])
+            if fetched.tzinfo is None:
+                fetched = fetched.replace(tzinfo=TZ)
+            if datetime.now(TZ) - fetched.astimezone(TZ) < timedelta(hours=AREA_CACHE_HOURS):
+                return cached
+        except Exception as exc:
+            print(f"AREA-cache genegeerd: {exc}")
+    return fetch_area_calendar()
+
+
+def classify_waste(label):
+    text = label.casefold()
+    if any(x in text for x in ("gft", "groente", "tuinafval", "organisch")):
+        return "green", "Groene container buitenzetten", "area-gft"
+    if any(x in text for x in ("pmd", "plastic", "verpakking", "drankkarton", "metaal")):
+        return "orange", "Oranje container buitenzetten", "area-pmd"
+    if any(x in text for x in ("papier", "karton")):
+        return "blue", "Blauwe container buitenzetten", "area-paper"
+    if any(x in text for x in ("rest", "grijs")):
+        return "gray", "Grijze container buitenzetten", "area-rest"
+    return None
+
+
 def load_todo_store():
     if not TODO_STORE.exists():
         return {"tasks": []}
@@ -164,13 +250,8 @@ def add_generated_task(tasks, title, due, rule_key, kind="recurring", marker=Non
 
 def ensure_recurring_tasks(store, today):
     tasks = store["tasks"]
-
-    # Planten: elke zondag. Als een vorige planten-taak nog openstaat,
-    # komt er niet nog een tweede identieke taak bij.
     if today.weekday() == 6:
         add_generated_task(tasks, "Planten water geven", today, "plants-weekly")
-
-    # Aquarium / filter: om en om iedere 14 dagen vanaf de vaste ankerdatum.
     if today >= MAINTENANCE_ANCHOR:
         delta_days = (today - MAINTENANCE_ANCHOR).days
         if delta_days % MAINTENANCE_INTERVAL_DAYS == 0:
@@ -180,21 +261,33 @@ def ensure_recurring_tasks(store, today):
             else:
                 add_generated_task(tasks, "Filter schoonmaken", today, "filter-monthly")
 
-    save_todo_store(store)
+
+def ensure_area_tasks(store, today):
+    calendar = get_area_calendar()
+    tomorrow = today + timedelta(days=1)
+    for entry in calendar.get("collections", []):
+        if entry.get("date") != tomorrow.isoformat():
+            continue
+        classified = classify_waste(entry.get("label", ""))
+        if not classified:
+            print(f"Onbekende AREA-afvalstroom: {entry.get('label')}")
+            continue
+        marker, title, rule_key = classified
+        # Taak verschijnt vandaag; identiteit bevat de daadwerkelijke ophaaldatum.
+        identity_key = f"{rule_key}-pickup-{tomorrow.isoformat()}"
+        add_generated_task(store["tasks"], title, today, identity_key, kind="waste", marker=marker)
+    return {"status": "ok", "fetched_at": calendar.get("fetched_at")}
 
 
 def cleanup_old_completed(store, today):
     before = len(store["tasks"])
     store["tasks"] = [t for t in store["tasks"] if not t.get("completed_date") or t.get("completed_date") == today.isoformat()]
-    if len(store["tasks"]) != before:
-        save_todo_store(store)
+    return len(store["tasks"]) != before
 
 
 def todo_sort_key(task, today):
     completed = bool(task.get("completed_date"))
     due = date.fromisoformat(task["due_date"])
-    # Afval (straks) mag altijd bovenaan, daarna doorgeschoven open taken,
-    # dan taken van vandaag, dan afgevinkt.
     waste_rank = 0 if task.get("kind") == "waste" and not completed else 1
     overdue_rank = 0 if due < today and not completed else 1
     completed_rank = 1 if completed else 0
@@ -204,8 +297,17 @@ def todo_sort_key(task, today):
 def get_todos():
     today = datetime.now(TZ).date()
     store = load_todo_store()
-    cleanup_old_completed(store, today)
+    changed = cleanup_old_completed(store, today)
+    before = json.dumps(store, sort_keys=True)
     ensure_recurring_tasks(store, today)
+    area_status = {"status": "unavailable"}
+    try:
+        area_status = ensure_area_tasks(store, today)
+    except Exception as exc:
+        area_status = {"status": "error", "error": str(exc)}
+        print(f"AREA niet bereikbaar: {exc}")
+    if changed or json.dumps(store, sort_keys=True) != before:
+        save_todo_store(store)
     visible = []
     for task in store["tasks"]:
         due = date.fromisoformat(task["due_date"])
@@ -220,7 +322,11 @@ def get_todos():
         "tasks": visible,
         "done": done,
         "total": len(visible),
-        "area": {"postcode": AREA_POSTCODE, "house_number": AREA_HOUSE_NUMBER, "status": "provider-id-pending"},
+        "area": {
+            "postcode": AREA_POSTCODE,
+            "house_number": AREA_HOUSE_NUMBER,
+            **area_status,
+        },
     }
 
 
@@ -332,5 +438,5 @@ if __name__ == "__main__":
     print(f"Agenda: {CALENDAR_NAME} (alleen lezen)")
     print("Weer: Ruinerwold via Open-Meteo")
     print(f"TO DO opslag: {TODO_STORE}")
-    print(f"AREA-adres voorbereid: {AREA_POSTCODE} {AREA_HOUSE_NUMBER}")
+    print(f"AREA: {AREA_POSTCODE} {AREA_HOUSE_NUMBER} via Ximmio")
     server.serve_forever()
