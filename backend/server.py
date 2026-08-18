@@ -192,14 +192,15 @@ def get_area_calendar():
 
 
 def classify_waste(label):
-    text = label.casefold()
-    if any(x in text for x in ("gft", "groente", "tuinafval", "organisch")):
+    text = str(label or "").strip().casefold()
+    # AREA/Ximmio levert voor dit adres ook korte kleurcodes zoals GREEN.
+    if text in ("green", "groen") or any(x in text for x in ("gft", "groente", "tuinafval", "organisch")):
         return "green", "Groene container buitenzetten", "area-gft"
-    if any(x in text for x in ("pmd", "plastic", "verpakking", "drankkarton", "metaal")):
+    if text in ("orange", "oranje") or any(x in text for x in ("pmd", "plastic", "verpakking", "drankkarton", "metaal")):
         return "orange", "Oranje container buitenzetten", "area-pmd"
-    if any(x in text for x in ("papier", "karton")):
+    if text in ("blue", "blauw") or any(x in text for x in ("papier", "karton")):
         return "blue", "Blauwe container buitenzetten", "area-paper"
-    if any(x in text for x in ("rest", "grijs")):
+    if text in ("gray", "grey", "grijs") or any(x in text for x in ("rest", "grijs")):
         return "gray", "Grijze container buitenzetten", "area-rest"
     return None
 
@@ -273,7 +274,6 @@ def ensure_area_tasks(store, today):
             print(f"Onbekende AREA-afvalstroom: {entry.get('label')}")
             continue
         marker, title, rule_key = classified
-        # Taak verschijnt vandaag; identiteit bevat de daadwerkelijke ophaaldatum.
         identity_key = f"{rule_key}-pickup-{tomorrow.isoformat()}"
         add_generated_task(store["tasks"], title, today, identity_key, kind="waste", marker=marker)
     return {"status": "ok", "fetched_at": calendar.get("fetched_at")}
