@@ -4,26 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tuus 1.0</title>
-  <link rel="stylesheet" href="style.css?v=20260818-1328">
+  <link rel="stylesheet" href="style.css?v=20260818-1430">
 </head>
 <body>
   <main class="stage">
     <header class="hero"><div class="brand">TUUS</div><div class="welcome">Welkom thuis</div></header>
     <section class="dashboard">
       <article class="panel agenda-panel">
-        <div class="panel-title-row">
-          <div class="icon-bubble">▣</div>
-          <div class="agenda-heading"><h2>AGENDA</h2><div class="agenda-date-line"><span id="agendaDate" class="panel-subtitle">--</span><span id="availabilityToday" class="availability-badge" hidden>● VRIJ</span></div></div>
-        </div>
+        <div class="panel-title-row"><div class="icon-bubble">▣</div><div class="agenda-heading"><h2>AGENDA</h2><div class="agenda-date-line"><span id="agendaDate" class="panel-subtitle">--</span><span id="availabilityToday" class="availability-badge" hidden>● VRIJ</span></div></div></div>
         <div class="agenda-list" id="agendaList"><div class="agenda-item"><div class="agenda-time">···</div><div><div class="agenda-title">Agenda laden…</div></div></div></div>
         <div class="agenda-tomorrow" id="agendaTomorrow">Morgen: laden…</div>
       </article>
       <article class="panel clock-panel"><div class="digital-block"><div id="digitalTime">--:--</div><div class="home-message" id="dailyQuote">Geniet van de kleine dingen.</div></div><canvas id="clock" aria-label="Analoge klok"></canvas></article>
       <article class="panel todo-panel"><div class="panel-title-row"><div class="icon-bubble">✓</div><h2>TO DO</h2></div><div class="todo-list" id="todoList"><label><input type="checkbox" checked><span>Vuilnis buitenzetten</span></label><label><input type="checkbox"><span>Boodschappen halen</span></label><label><input type="checkbox"><span>Was opvouwen</span></label><label><input type="checkbox"><span>Auto tanken</span></label><label><input type="checkbox"><span>Bloemen water geven</span></label></div><div class="todo-footer" id="todoCount">✓ 1 van 5 taken voltooid</div></article>
-      <article class="panel weather-panel"><div class="weather-left"><div class="panel-title-row"><div class="icon-bubble">☀</div><h2>WEER</h2></div><div class="weather-temp">21°C</div><div class="weather-state">Zonnig</div><div class="weather-detail">• &nbsp; Voelt als 21°C</div><div class="weather-detail">• &nbsp; ZW 13 km/u</div><div class="weather-detail">• &nbsp; Vochtigheid 59%</div></div><div class="radar-card"><div class="radar-dots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="radar-title">BUIENRADAR</div><div class="radar-subtitle">live kaart volgt</div></div></article>
+      <article class="panel weather-panel">
+        <div class="weather-left"><div class="panel-title-row"><div class="icon-bubble" id="weatherIcon">☀</div><h2>WEER</h2></div><div class="weather-temp" id="weatherTemp">--°C</div><div class="weather-state" id="weatherState">Weer laden…</div><div class="weather-detail" id="weatherFeels">• &nbsp; Voelt als --°C</div><div class="weather-detail" id="weatherWind">• &nbsp; Wind -- km/u</div><div class="weather-detail" id="weatherHumidity">• &nbsp; Vochtigheid --%</div></div>
+        <div class="radar-card"><img id="radarImage" class="radar-image" alt="Actuele Buienradar voor Nederland"><div class="radar-credit">BUIENRADAR.NL · 5 MIN</div></div>
+      </article>
     </section>
     <footer>TUUS 1.0 · webui prototype</footer>
   </main>
-  <script src="app.js?v=20260818-1328"></script>
+  <script src="app.js?v=20260818-1430"></script>
 </body>
 </html>
