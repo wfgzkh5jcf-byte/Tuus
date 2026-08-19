@@ -69,7 +69,9 @@ def open_touch():
 def main():
     touch = open_touch()
     awake_until = 0.0
-    display(not is_night())
+    night = is_night()
+    screen_on = not night
+    display(screen_on)
 
     while True:
         try:
@@ -81,16 +83,27 @@ def main():
                 _, _, event_type, code, value = EVENT_STRUCT.unpack(data)
                 if event_type == EV_KEY and code == BTN_TOUCH and value == 1 and is_night():
                     awake_until = time.monotonic() + TOUCH_WAKE_SECONDS
-                    display(True)
+                    if not screen_on:
+                        display(True)
+                        screen_on = True
 
-            if is_night():
+            now_night = is_night()
+            if now_night:
+                if not night and not awake_until:
+                    display(False)
+                    screen_on = False
                 if awake_until and time.monotonic() >= awake_until:
                     awake_until = 0.0
-                    display(False)
+                    if screen_on:
+                        display(False)
+                        screen_on = False
             else:
-                if awake_until:
-                    awake_until = 0.0
-                display(True)
+                awake_until = 0.0
+                if not screen_on:
+                    display(True)
+                    screen_on = True
+
+            night = now_night
         except (OSError, ValueError):
             try:
                 touch.close()
